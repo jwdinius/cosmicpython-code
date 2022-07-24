@@ -15,7 +15,38 @@ def test_repository_can_save_a_batch(session):
     )
     assert list(rows) == [("batch1", "RUSTY-SOAPDISH", 100, None)]
 
+def insert_order_line(session, order_line=model.OrderLine("order1", "GENERIC-SOFA", 12)):
+    session.execute(
+        "INSERT INTO order_lines (orderid, sku, qty)"
+        ' VALUES (\"{}\", \"{}\", {})'.format(order_line.orderid, order_line.sku, order_line.qty)
+    )
+    [[orderline_id]] = session.execute(
+        "SELECT id FROM order_lines WHERE orderid=:orderid AND sku=:sku",
+        dict(orderid=order_line.orderid, sku=order_line.sku),
+    )
+    return orderline_id
 
+def insert_batch(session, batch=model.Batch("batch1", "GENERIC-SOFA", 100, None)):
+    if batch.eta is None:
+        session.execute(
+            "INSERT INTO batches (reference, sku, _purchased_quantity, eta)"
+            ' VALUES (\"{}\", \"{}", {}, null)'.format(batch.reference, batch.sku, batch._purchased_quantity)
+        )
+    else:
+        session.execute(
+            "INSERT INTO batches (reference, sku, _purchased_quantity, eta)"
+            ' VALUES (\"{}\", \"{}", {}, {})'.format(batch.reference, batch.sku, batch._purchased_quantity, batch.eta)
+        )
+    print(list(session.execute(
+        'SELECT id FROM batches WHERE reference=\"{}\" AND sku=\"{}\"'.format(batch.reference, batch.sku)
+    )))
+
+    [[batch_id]] = session.execute(
+        'SELECT id FROM batches WHERE reference=\"{}\" AND sku=\"{}\"'.format(batch.reference, batch.sku)
+    )
+    return batch_id
+
+'''
 def insert_order_line(session):
     session.execute(
         "INSERT INTO order_lines (orderid, sku, qty)"
@@ -39,7 +70,7 @@ def insert_batch(session, batch_id):
         dict(batch_id=batch_id),
     )
     return batch_id
-
+'''
 
 def insert_allocation(session, orderline_id, batch_id):
     session.execute(
@@ -51,8 +82,8 @@ def insert_allocation(session, orderline_id, batch_id):
 
 def test_repository_can_retrieve_a_batch_with_allocations(session):
     orderline_id = insert_order_line(session)
-    batch1_id = insert_batch(session, "batch1")
-    insert_batch(session, "batch2")
+    batch1_id = insert_batch(session)
+    insert_batch(session, model.Batch("batch2", "GENERIC-SOFA", 100, None))
     insert_allocation(session, orderline_id, batch1_id)
 
     repo = repository.SqlRepository(session)
@@ -85,14 +116,22 @@ def test_updating_a_batch(session):
     order1 = model.OrderLine("order1", "WEATHERED-BENCH", 10)
     order2 = model.OrderLine("order2", "WEATHERED-BENCH", 20)
     batch = model.Batch("batch1", "WEATHERED-BENCH", 100, eta=None)
-    batch.allocate(order1)
 
     repo = repository.SqlRepository(session)
     repo.add(batch)
+    orderline_id = insert_order_line(session, order1)
+    [[batch_id]] = session.execute(
+        'SELECT id FROM batches WHERE reference=\"{}\" AND sku=\"{}\"'.format(batch.reference, batch.sku)
+    )
+    #batch_id = insert_batch(session, batch)
+    batch.allocate(order1)
+    insert_allocation(session, orderline_id, batch_id)
     session.commit()
 
-    batch.allocate(order2)
     repo.add(batch)
+    orderline2_id = insert_order_line(session, order2)
+    batch.allocate(order2)
+    insert_allocation(session, orderline2_id, batch_id)
     session.commit()
 
-    assert get_allocations(session, "batch1") == {"order1", "order2"}
+    assert get_allocations(session, batch.reference) == {"order1", "order2"}
