@@ -116,22 +116,14 @@ def test_updating_a_batch(session):
     order1 = model.OrderLine("order1", "WEATHERED-BENCH", 10)
     order2 = model.OrderLine("order2", "WEATHERED-BENCH", 20)
     batch = model.Batch("batch1", "WEATHERED-BENCH", 100, eta=None)
+    batch.allocate(order1)
 
     repo = repository.SqlRepository(session)
     repo.add(batch)
-    orderline_id = insert_order_line(session, order1)
-    [[batch_id]] = session.execute(
-        'SELECT id FROM batches WHERE reference=\"{}\" AND sku=\"{}\"'.format(batch.reference, batch.sku)
-    )
-    #batch_id = insert_batch(session, batch)
-    batch.allocate(order1)
-    insert_allocation(session, orderline_id, batch_id)
     session.commit()
 
-    repo.add(batch)
-    orderline2_id = insert_order_line(session, order2)
     batch.allocate(order2)
-    insert_allocation(session, orderline2_id, batch_id)
+    repo.add(batch)
     session.commit()
 
     assert get_allocations(session, batch.reference) == {"order1", "order2"}

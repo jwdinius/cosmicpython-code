@@ -27,8 +27,38 @@ class SqlRepository(AbstractRepository):
                 self.session.execute('INSERT INTO batches (id, reference, sku, _purchased_quantity, eta) VALUES (NULL, \"{}\", \"{}\", {}, {})'.format(batch.reference, batch.sku, batch._purchased_quantity, batch.eta))
         else:
             # update existing batch
-            pass
-
+            if batch.eta is None:
+                self.session.execute('UPDATE batches SET sku=\"{}\", _purchased_quantity={} WHERE reference=\"{}\"'.format(batch.sku, batch._purchased_quantity, batch.reference))
+            else:
+                self.session.execute('UPDATE batches SET sku=\"{}\", _purchased_quantity={}, eta={} WHERE reference=\"{}\"'.format(batch.sku, batch._purchased_quantity, batch.reference, batch.eta))
+        #self.session.commit()  # XXX(jwd) are these needed here?
+        [[batch_id]] = self.session.execute(
+            'SELECT id FROM batches WHERE reference=\"{}\" AND sku=\"{}\"'.format(batch.reference, batch.sku)
+        )
+        # need to get allocations
+        for allocation in batch.allocations:
+            # check if orderline already in database
+            try:
+                [[orderline_id]] = self.session.execute(
+                    "SELECT id FROM order_lines WHERE orderid=:orderid AND sku=:sku",
+                    dict(orderid=allocation.orderid, sku=allocation.sku),
+                )
+            except:
+                self.session.execute(
+                    "INSERT INTO order_lines (orderid, sku, qty)"
+                    ' VALUES (\"{}\", \"{}\", {})'.format(allocation.orderid, allocation.sku, allocation.qty)
+                )
+                #self.session.commit()
+            [[orderline_id]] = self.session.execute(
+                "SELECT id FROM order_lines WHERE orderid=:orderid AND sku=:sku",
+                dict(orderid=allocation.orderid, sku=allocation.sku),
+            )
+            # set allocation
+            self.session.execute(
+                "INSERT INTO allocations (orderline_id, batch_id)"
+                " VALUES (:orderline_id, :batch_id)",
+                dict(orderline_id=orderline_id, batch_id=batch_id),
+            )
 
     def get(self, reference) -> model.Batch:
         # self.session.execute('SELECT ??
