@@ -17,7 +17,7 @@ logs:
 	docker-compose logs app | tail -100
 
 test:
-	pytest --tb=short
+	pytest --tb=short -v --capture=tee-sys
 
 black:
 	black -l 86 $$(find * -name '*.py')
