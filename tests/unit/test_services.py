@@ -43,7 +43,8 @@ def test_add_batch_for_existing_product():
     uow = FakeUnitOfWork()
     services.add_batch("b1", "GARISH-RUG", 100, None, uow)
     services.add_batch("b2", "GARISH-RUG", 99, None, uow)
-    assert "b2" in [b.reference for b in uow.products.get("GARISH-RUG").batches]
+    batches = uow.products.list()
+    assert "b2" in [b.reference for b in batches]
 
 
 def test_allocate_returns_allocation():
