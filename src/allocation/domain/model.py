@@ -22,9 +22,12 @@ class Product:
 
     def __init__(self, *args, **kwargs):
         self.batches = kwargs.get("batches")
+        self.version_number = 0
 
     def allocate(self, line):
-        return allocate(line, self.batches)
+        out = allocate(line, self.batches)
+        self.version_number += 1
+        return out
 
 
 @dataclass(unsafe_hash=True)
