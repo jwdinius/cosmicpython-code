@@ -9,16 +9,16 @@ class FakeRepository(repository.AbstractRepository):
         super().__init__()
         self._products = set(products)
 
-    def _add(self, product):
+    def add(self, product):
         self._products.add(product)
 
-    def _get(self, sku):
+    def get(self, sku):
         return next((p for p in self._products if p.sku == sku), None)
 
 
 class FakeUnitOfWork(unit_of_work.AbstractUnitOfWork):
     def __init__(self):
-        self.products = FakeRepository([])
+        self.products = repository.TrackingRepository(FakeRepository([]))
         self.committed = False
 
     def _commit(self):
@@ -31,6 +31,8 @@ class FakeUnitOfWork(unit_of_work.AbstractUnitOfWork):
 def test_add_batch_for_new_product():
     uow = FakeUnitOfWork()
     services.add_batch("b1", "CRUNCHY-ARMCHAIR", 100, None, uow)
+    q = next((p for p in uow.products._repo._products if p.sku == "CRUNCHY-ARMCHAIR"), None)
+    q1 = uow.products._repo.get("CRUNCHY-ARMCHAIR")
     assert uow.products.get("CRUNCHY-ARMCHAIR") is not None
     assert uow.committed
 

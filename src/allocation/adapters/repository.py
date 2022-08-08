@@ -4,10 +4,10 @@ from allocation.domain import model
 
 class AbstractRepository(Protocol):
     def add(self, product: model.Product):
-        ...
+        raise NotImplementedError
 
     def get(self, sku) -> model.Product:
-        ...
+        raise NotImplementedError
 
 
 class TrackingRepository:
