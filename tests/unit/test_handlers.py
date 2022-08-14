@@ -38,6 +38,14 @@ class FakeUnitOfWork(unit_of_work.AbstractUnitOfWork):
         pass
 
 
+class FakeMessageBus(messagebus.MessageBus):
+    def __init__(self, uow):
+        super().__init__(uow)
+        self.events_published = []
+        # change out-of-stock handler
+        self.HANDLERS[events.OutOfStock] = [lambda e, _: self.events_published.append(e)]
+
+
 class TestAddBatch:
     def test_for_new_product(self):
         uow = FakeUnitOfWork()
@@ -108,6 +116,7 @@ class TestChangeBatchQuantity:
 
     def test_reallocates_if_necessary(self):
         uow = FakeUnitOfWork()
+        mbus = FakeMessageBus(uow)
         event_history = [
             events.BatchCreated("batch1", "INDIFFERENT-TABLE", 50, None),
             events.BatchCreated("batch2", "INDIFFERENT-TABLE", 50, date.today()),
@@ -115,12 +124,14 @@ class TestChangeBatchQuantity:
             events.AllocationRequired("order2", "INDIFFERENT-TABLE", 20),
         ]
         for e in event_history:
-            messagebus.handle(e, uow)
+            #messagebus.handle(e, uow)
+            mbus.handle(e)
         [batch1, batch2] = uow.products.get(sku="INDIFFERENT-TABLE").batches
         assert batch1.available_quantity == 10
         assert batch2.available_quantity == 50
 
-        messagebus.handle(events.BatchQuantityChanged("batch1", 25), uow)
+        #messagebus.handle(events.BatchQuantityChanged("batch1", 25), uow)
+        mbus.handle(events.BatchQuantityChanged("batch1", 25))
 
         # order1 or order2 will be deallocated, so we'll have 25 - 20
         assert batch1.available_quantity == 5

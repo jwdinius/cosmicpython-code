@@ -27,3 +27,24 @@ HANDLERS = {
     events.AllocationRequired: [handlers.allocate],
     events.OutOfStock: [handlers.send_out_of_stock_notification],
 }  # type: Dict[Type[events.Event], List[Callable]]
+
+class AbstractMessageBus:
+    HANDLERS: Dict[Type[events.Event], List[Callable]]
+    
+    def __init__(self, uow):
+        self._uow = uow
+
+    def handle(self, event: events.Event):
+        queue = [event]
+        while queue:
+            event = queue.pop(0)
+            for handler in HANDLERS[type(event)]:
+                handler(event, uow=self._uow)
+                queue.extend(self._uow.collect_new_events())
+
+
+class MessageBus(AbstractMessageBus):
+    HANDLERS = HANDLERS
+    
+    def __init__(self, uow):
+        super().__init__(uow)
